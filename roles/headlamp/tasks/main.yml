@@ -60,6 +60,17 @@
     name: "{{ headlamp_namespace }}"
     state: present
 
+# define once (in the play, before tasks)
+- set_fact:
+    no_proxy_env:
+      HTTP_PROXY: ""
+      HTTPS_PROXY: ""
+      http_proxy: ""
+      https_proxy: ""
+      NO_PROXY: "localhost,127.0.0.1,::1,kubernetes.default.svc,.svc,.cluster.local,.maas,controller-1,controller-2,controller-3"
+      no_proxy:  "localhost,127.0.0.1,::1,kubernetes.default.svc,.svc,.cluster.local,.maas,controller-1,controller-2,controller-3"
+  run_once: true
+
 - name: Add Headlamp Helm repo
   become: true
   delegate_to: "{{ k8s_delegate }}"
