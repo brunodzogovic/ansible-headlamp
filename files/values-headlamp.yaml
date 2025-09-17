@@ -1,0 +1,38 @@
+# files/values-headlamp.yaml
+
+# Create a dedicated SA; Headlamp uses RBAC and typically logs in with a SA token.
+serviceAccount:
+  create: true
+  name: headlamp-sa
+
+rbac:
+  create: true
+
+# Expose as ClusterIP by default (safer); switch to ingress if desired.
+service:
+  type: ClusterIP
+  port: 80
+
+# Uncomment to enable Ingress (example for NGINX + TLS)
+#ingress:
+#  enabled: true
+#  className: nginx
+#  hosts:
+#    - host: headlamp.example.com
+#      paths:
+#        - path: /
+#          pathType: Prefix
+#  tls:
+#    - secretName: headlamp-tls
+#      hosts:
+#        - headlamp.example.com
+
+# Tighten securityContext (the upstream chart supports these)
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true

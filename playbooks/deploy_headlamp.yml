@@ -1,0 +1,7 @@
+# playbooks/deploy_headlamp.yml
+- name: Deploy Headlamp to the cluster
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  roles:
+    - headlamp
