@@ -1,6 +1,12 @@
 # All tasks run exactly once, on the delegate (a control-plane node).
 # We use become because /etc/kubernetes/admin.conf may be root-readable only.
 
+- name: Gather facts on delegate (needed for package manager detection)
+  become: true
+  delegate_to: "{{ k8s_delegate }}"
+  run_once: true
+  setup:
+
 - name: Ensure python and curl present on delegate
   become: true
   delegate_to: "{{ k8s_delegate }}"
