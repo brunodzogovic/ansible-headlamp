@@ -11,7 +11,7 @@
   become: true
   delegate_to: "{{ k8s_delegate }}"
   run_once: true
-  apt:
+  packages:
     name:
       - python3
       - python3-pip
