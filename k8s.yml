@@ -1,4 +1,0 @@
-kubeconfig_path: "/path/to/kubespray/inventory/mycluster/artifacts/admin.conf"
-headlamp_namespace: "headlamp"
-headlamp_release_name: "headlamp"
-headlamp_chart_version: ""   # optional pin, e.g. "0.35.0"

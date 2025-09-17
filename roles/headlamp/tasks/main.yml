@@ -1,26 +1,81 @@
-# roles/headlamp/tasks/main.yml
+# All tasks run exactly once, on the delegate (a control-plane node).
+# We use become because /etc/kubernetes/admin.conf may be root-readable only.
+
+- name: Ensure python and curl present on delegate
+  become: true
+  delegate_to: "{{ k8s_delegate }}"
+  run_once: true
+  package:
+    name:
+      - python3
+      - python3-pip
+      - curl
+    state: present
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+
+- name: Install Python kubernetes client on delegate
+  become: true
+  delegate_to: "{{ k8s_delegate }}"
+  run_once: true
+  pip:
+    name: "kubernetes>=26.0.0"
+    state: present
+    executable: pip3
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+
+- name: Install helm binary on delegate if missing
+  become: true
+  delegate_to: "{{ k8s_delegate }}"
+  run_once: true
+  shell: |
+    set -e
+    if ! command -v helm >/dev/null 2>&1; then
+      TMP=$(mktemp -d)
+      cd "$TMP"
+      # pick a stable helm; adjust as you like
+      HELM_VER="v3.15.4"
+      curl -fsSL "https://get.helm.sh/helm-${HELM_VER}-linux-amd64.tar.gz" -o helm.tgz
+      tar -xzf helm.tgz
+      install linux-amd64/helm /usr/local/bin/helm
+      rm -rf "$TMP"
+    fi
+  args:
+    executable: /bin/bash
+
 - name: Ensure namespace exists
+  become: true
+  delegate_to: "{{ k8s_delegate }}"
+  run_once: true
   kubernetes.core.k8s:
-    kubeconfig: "{{ kubeconfig_path }}"
+    kubeconfig: "{{ k8s_kubeconfig_path }}"
     api_version: v1
     kind: Namespace
     name: "{{ headlamp_namespace }}"
     state: present
 
 - name: Add Headlamp Helm repo
+  become: true
+  delegate_to: "{{ k8s_delegate }}"
+  run_once: true
   kubernetes.core.helm_repository:
     name: headlamp
     repo_url: "https://kubernetes-sigs.github.io/headlamp/"
 
 - name: Deploy / upgrade Headlamp
+  become: true
+  delegate_to: "{{ k8s_delegate }}"
+  run_once: true
   kubernetes.core.helm:
     name: "{{ headlamp_release_name }}"
     chart_ref: "headlamp/headlamp"
     chart_version: "{{ headlamp_chart_version | default(omit) }}"
     release_namespace: "{{ headlamp_namespace }}"
-    kubeconfig: "{{ kubeconfig_path }}"
+    kubeconfig: "{{ k8s_kubeconfig_path }}"
     values_files:
       - "{{ playbook_dir }}/../files/values-headlamp.yaml"
     create_namespace: false
     wait: true
     atomic: true
+
