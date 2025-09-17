@@ -1,0 +1,8 @@
+headlamp_namespace: headlamp
+headlamp_release_name: headlamp
+k8s_kubeconfig_path: /etc/kubernetes/admin.conf
+
+# expose toggle + optional static IP from your Cilium pool
+headlamp_expose_enabled: false
+headlamp_lb_ip: "10.10.0.11"   # e.g. "10.10.0.11" or leave empty to auto-assign
+

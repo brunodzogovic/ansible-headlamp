@@ -1,0 +1,38 @@
+- name: Switch service to LoadBalancer (+ optional static IP)
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Service
+    name: "{{ headlamp_release_name }}"
+    namespace: "{{ headlamp_namespace }}"
+    merge_type: merge
+    definition:
+      metadata:
+        annotations: >-
+          {{
+            {'lbipam.cilium.io/ips': headlamp_lb_ip}
+            if (headlamp_lb_ip | length > 0)
+            else {}
+          }}
+      spec:
+        type: LoadBalancer
+
+- name: Wait for LoadBalancer IP allocation
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Service
+    name: "{{ headlamp_release_name }}"
+    namespace: "{{ headlamp_namespace }}"
+  register: headlamp_svc
+  until:
+    - headlamp_svc.resources | length > 0
+    - headlamp_svc.resources[0].status.loadBalancer.ingress is defined
+    - (headlamp_svc.resources[0].status.loadBalancer.ingress | length) > 0
+  retries: 30
+  delay: 5
+
+- name: Show external address
+  vars:
+    ing: "{{ headlamp_svc.resources[0].status.loadBalancer.ingress[0] }}"
+  debug:
+    msg: "Headlamp external address: {{ ing.ip | default(ing.hostname) }}"
+
