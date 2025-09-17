@@ -2,7 +2,7 @@
 k8s_delegate: "{{ groups['kube_control_plane'][0] }}"
 k8s_kubeconfig_path: "/etc/kubernetes/admin.conf"
 headlamp_expose_enabled: true  # or false
-headlamp_lb_ip: "10.10.0.11" # or leave empty for auto-assign
+headlamp_lb_ip: "" # or leave empty for auto-assign
 headlamp_namespace: "headlamp"
 headlamp_release_name: "headlamp"
 headlamp_chart_version: ""   # optional pin, e.g. "0.35.0"

@@ -50,9 +50,6 @@
     executable: /bin/bash
 
 - name: Ensure namespace exists
-  become: true
-  delegate_to: "{{ k8s_delegate }}"
-  run_once: true
   kubernetes.core.k8s:
     kubeconfig: "{{ k8s_kubeconfig_path }}"
     api_version: v1
@@ -96,6 +93,7 @@
       - "/tmp/values-headlamp.yaml"         # <-- remote path
     wait: true
     atomic: true
+    timeout: 900
 
 - name: Expose Headlamp via LoadBalancer (optional)
   when: headlamp_expose_enabled | bool
