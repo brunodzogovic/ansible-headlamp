@@ -1,7 +1,7 @@
 # Use the first control-plane node as the delegate
 k8s_delegate: "{{ groups['kube_control_plane'][0] }}"
 k8s_kubeconfig_path: "/etc/kubernetes/admin.conf"
-ansible_python_interpreter: /usr/bin/python3
+ansible_python_interpreter: /usr/bin/env python3
 
 headlamp_namespace: "headlamp"
 headlamp_release_name: "headlamp"
