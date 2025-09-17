@@ -7,7 +7,7 @@
   run_once: true
   setup:
   vars:
-    ansible_python_interpreter: /usr/bin/env python3
+    ansible_python_interpreter: /usr/bin/python3
 
 - name: Ensure python and curl present on delegate
   become: true
@@ -20,7 +20,7 @@
       - curl
     state: present
   vars:
-    ansible_python_interpreter: /usr/bin/env python3
+    ansible_python_interpreter: /usr/bin/python3
 
 - name: Install Python kubernetes client on delegate
   become: true
@@ -31,7 +31,7 @@
     state: present
     executable: pip3
   vars:
-    ansible_python_interpreter: /usr/bin/env python3
+    ansible_python_interpreter: /usr/bin/python3
 
 - name: Install helm binary on delegate if missing
   become: true
