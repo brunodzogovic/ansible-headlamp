@@ -95,17 +95,6 @@
     atomic: true
     timeout: "15m"
 
-- name: Wait until Headlamp Service exists (created by Helm)
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: Service
-    name: "{{ headlamp_release_name }}"
-    namespace: "{{ headlamp_namespace }}"
-  register: headlamp_svc_info
-  until: headlamp_svc_info.resources | length > 0
-  retries: 30
-  delay: 5
-
 - name: Expose Headlamp via LoadBalancer (optional)
   when: headlamp_expose_enabled | bool
   include_tasks: expose.yml
