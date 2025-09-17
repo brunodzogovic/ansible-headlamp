@@ -71,17 +71,17 @@
       no_proxy:  "localhost,127.0.0.1,::1,kubernetes.default.svc,.svc,.cluster.local,.maas,controller-1,controller-2,controller-3"
   run_once: true
 
+# use it on the helm tasks
 - name: Add Headlamp Helm repo
   become: true
-  delegate_to: "{{ k8s_delegate }}"
-  run_once: true
+  environment: "{{ no_proxy_env }}"
   kubernetes.core.helm_repository:
     name: headlamp
     repo_url: "https://kubernetes-sigs.github.io/headlamp/"
 
 - name: Deploy / upgrade Headlamp
   become: true
-  delegate_to: "{{ k8s_delegate }}"
+  delegate_to: "{{ no_proxy_env }}"
   run_once: true
   kubernetes.core.helm:
     name: "{{ headlamp_release_name }}"
