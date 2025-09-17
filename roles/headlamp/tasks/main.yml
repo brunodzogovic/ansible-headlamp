@@ -22,16 +22,13 @@
   vars:
     ansible_python_interpreter: /usr/bin/python3
 
-- name: Install Python kubernetes client on delegate
+- name: Install Kubernetes Python client (Debian/Ubuntu)
   become: true
-  delegate_to: "{{ k8s_delegate }}"
-  run_once: true
-  pip:
-    name: "kubernetes>=26.0.0"
+  apt:
+    name:
+      - python3-kubernetes
     state: present
-    executable: pip3
-  vars:
-    ansible_python_interpreter: /usr/bin/python3
+    update_cache: true
 
 - name: Install helm binary on delegate if missing
   become: true
