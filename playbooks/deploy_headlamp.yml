@@ -1,9 +1,10 @@
 # playbooks/deploy_headlamp.yml
-- name: Deploy Headlamp to the cluster
-  hosts: localhost
-  connection: local
-  gather_facts: false
+- name: Deploy Headlamp from a control-plane
+  hosts: "{{ groups['kube_control_plane'][0] }}"
+  gather_facts: yes
+  become: true
+
   vars_files:
-    - ../group_vars/k8s.yml
+    - ../group_vars/k8s.yml   # your vars (namespace, chart version, etc.)
   roles:
     - roles/headlamp
