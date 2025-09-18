@@ -1,0 +1,148 @@
+- name: Cleanup Headlamp from the cluster
+  hosts: "{{ groups['kube_control_plane'][0] }}"   # run on a control-plane node
+  gather_facts: yes
+  become: true
+
+  vars:
+    # Match your original deployment variables
+    k8s_kubeconfig_path: "/etc/kubernetes/admin.conf"
+    headlamp_namespace: "headlamp"
+    headlamp_release_name: "headlamp"
+
+    # Tuning knobs
+    purge_namespace: false         # set true to delete the namespace after cleanup
+    remove_helm_repo: true         # remove 'headlamp' repo entry
+    helm_version: "v3.15.4"        # same version you installed earlier
+    label_name: "app.kubernetes.io/name=headlamp"
+    label_instance: "app.kubernetes.io/instance={{ headlamp_release_name }}"
+
+  pre_tasks:
+    - name: Ensure helm is present on delegate (same way you installed it)
+      shell: |
+        set -e
+        if ! command -v helm >/dev/null 2>&1; then
+          TMP=$(mktemp -d)
+          cd "$TMP"
+          curl -fsSL "https://get.helm.sh/helm-{{ helm_version }}-linux-amd64.tar.gz" -o helm.tgz
+          tar -xzf helm.tgz
+          install linux-amd64/helm /usr/local/bin/helm
+          rm -rf "$TMP"
+        fi
+      args: {executable: /bin/bash}
+      changed_when: false
+      tags: [headlamp_cleanup]
+      # Matches how helm was installed in your deploy playbook. :contentReference[oaicite:5]{index=5}
+
+  tasks:
+    - name: Uninstall Headlamp Helm release (if present)
+      kubernetes.core.helm:
+        name: "{{ headlamp_release_name }}"
+        release_namespace: "{{ headlamp_namespace }}"
+        kubeconfig: "{{ k8s_kubeconfig_path }}"
+        state: absent
+        wait: true
+      register: _helm_uninstall
+      failed_when: false
+      tags: [headlamp_cleanup]
+      # Uses the same helm module + release/namespace you used to install. :contentReference[oaicite:6]{index=6}
+
+    - name: Delete namespaced resources by labels (chart leftovers / manual edits)
+      kubernetes.core.k8s:
+        kubeconfig: "{{ k8s_kubeconfig_path }}"
+        api_version: v1
+        state: absent
+        namespace: "{{ headlamp_namespace }}"
+        kind: "{{ item.kind }}"
+        label_selectors:
+          - "{{ label_name }}"
+          - "{{ label_instance }}"
+        wait: true
+        wait_timeout: 60
+      loop:
+        - { kind: "ConfigMap" }
+        - { kind: "Service" }
+        - { kind: "Pod" }
+        - { kind: "ServiceAccount" }
+        - { kind: "PersistentVolumeClaim" }
+      register: _ns_objs
+      failed_when: false
+      tags: [headlamp_cleanup]
+
+    - name: Delete namespaced apps/RBAC by labels
+      kubernetes.core.k8s:
+        kubeconfig: "{{ k8s_kubeconfig_path }}"
+        state: absent
+        namespace: "{{ headlamp_namespace }}"
+        kind: "{{ item.kind }}"
+        api_version: "{{ item.api | default('apps/v1') }}"
+        label_selectors:
+          - "{{ label_name }}"
+          - "{{ label_instance }}"
+        wait: true
+        wait_timeout: 60
+      loop:
+        - { kind: "Deployment", api: "apps/v1" }
+        - { kind: "StatefulSet", api: "apps/v1" }
+        - { kind: "DaemonSet", api: "apps/v1" }
+        - { kind: "Ingress", api: "networking.k8s.io/v1" }
+        - { kind: "Role", api: "rbac.authorization.k8s.io/v1" }
+        - { kind: "RoleBinding", api: "rbac.authorization.k8s.io/v1" }
+      register: _ns_apps_rbac
+      failed_when: false
+      tags: [headlamp_cleanup]
+
+    - name: Delete cluster-scoped RBAC by labels (rare, but safe to check)
+      kubernetes.core.k8s:
+        kubeconfig: "{{ k8s_kubeconfig_path }}"
+        state: absent
+        kind: "{{ item.kind }}"
+        api_version: "rbac.authorization.k8s.io/v1"
+        label_selectors:
+          - "{{ label_name }}"
+          - "{{ label_instance }}"
+        wait: true
+        wait_timeout: 60
+      loop:
+        - { kind: "ClusterRole" }
+        - { kind: "ClusterRoleBinding" }
+      register: _cluster_rbac
+      failed_when: false
+      tags: [headlamp_cleanup]
+
+    - name: Optionally purge the dedicated namespace
+      when: purge_namespace | bool
+      kubernetes.core.k8s:
+        kubeconfig: "{{ k8s_kubeconfig_path }}"
+        api_version: v1
+        kind: Namespace
+        name: "{{ headlamp_namespace }}"
+        state: absent
+        wait: true
+        wait_timeout: 120
+      tags: [headlamp_cleanup]
+      # Your deployment used a dedicated 'headlamp' namespace. :contentReference[oaicite:7]{index=7}
+
+    - name: Optionally remove the Headlamp Helm repo entry
+      when: remove_helm_repo | bool
+      shell: |
+        helm repo remove headlamp || true
+        helm repo update || true
+      args: {executable: /bin/bash}
+      changed_when: false
+      tags: [headlamp_cleanup]
+      # The deploy added 'headlamp' repo explicitly; this tidies it up. :contentReference[oaicite:8]{index=8}
+
+  post_tasks:
+    - name: Show remaining resources with 'headlamp' label (sanity check)
+      shell: |
+        set -e
+        echo "=== Namespaced ==="
+        kubectl --kubeconfig "{{ k8s_kubeconfig_path }}" -n "{{ headlamp_namespace }}" \
+          get all,cm,sa,role,rolebinding,ingress -l "{{ label_name }}" -l "{{ label_instance }}" || true
+        echo "=== Cluster RBAC ==="
+        kubectl --kubeconfig "{{ k8s_kubeconfig_path }}" \
+          get clusterrole,clusterrolebinding -l "{{ label_name }}" -l "{{ label_instance }}" || true
+      args: {executable: /bin/bash}
+      changed_when: false
+      tags: [headlamp_cleanup]
+
