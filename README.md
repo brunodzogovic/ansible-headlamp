@@ -1,6 +1,9 @@
 # ansible-headlamp
 Ansible playbooks for installing Headlamp in an existing k8s cluster. 
 
+## Variables
+Highest priority variables are located in `group_vars/k8s.yml`. The headlamp role includes defaults with variables with lower priority. It is possible to override the variables by passing `-e` in Ansible or by inserting a variable group in Ansible-Semaphore with values corresponding from the `group_vars/k8s.yml` file. 
+
 ## Headlamp management
 Grant admin access to headlamp so it can control the clusters: 
 ```kubectl create clusterrolebinding headlamp-admin-crb \
