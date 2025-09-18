@@ -95,6 +95,21 @@
     atomic: true
     timeout: "15m"
 
+- name: Wait for Headlamp pod to become Ready
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: "{{ headlamp_namespace }}"
+    label_selectors:
+      - "app.kubernetes.io/instance={{ headlamp_release_name }}"
+      - "app.kubernetes.io/name=headlamp"
+  register: _pods
+  until:
+    - _pods.resources | length > 0
+    - (_pods.resources | map(attribute='status.containerStatuses') | list | flatten | selectattr('ready') | list | length) > 0
+  retries: 30
+  delay: 5
+
 - name: Expose Headlamp via LoadBalancer (optional)
   when: headlamp_expose_enabled | bool
   include_tasks: expose.yml

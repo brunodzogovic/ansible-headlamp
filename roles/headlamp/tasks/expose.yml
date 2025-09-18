@@ -1,48 +1,69 @@
-- name: Wait until Headlamp Service exists (created by Helm)
+# 0) Wait for Deployment to exist (proves the release got created)
+- name: Wait until Headlamp Deployment exists
   kubernetes.core.k8s_info:
-    api_version: v1
-    kind: Service
-    name: "{{ headlamp_release_name }}"
+    api_version: apps/v1
+    kind: Deployment
     namespace: "{{ headlamp_namespace }}"
-  register: headlamp_svc_info
-  until: headlamp_svc_info.resources | length > 0
+    label_selectors:
+      - "app.kubernetes.io/instance={{ headlamp_release_name }}"
+      - "app.kubernetes.io/name=headlamp"
+  register: _dep
+  until: _dep.resources | length > 0
   retries: 30
   delay: 5
 
-- name: Switch Service to LoadBalancer (partial JSON patch)
+# 1) Discover the Service by labels (chart may not use exact name)
+- name: Find Headlamp Service by labels
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Service
+    namespace: "{{ headlamp_namespace }}"
+    label_selectors:
+      - "app.kubernetes.io/instance={{ headlamp_release_name }}"
+      - "app.kubernetes.io/name=headlamp"
+  register: _svc
+
+- name: Fail early if Service not found
+  fail:
+    msg: "Headlamp Service not found; release may have rolled back. Check 'helm -n {{ headlamp_namespace }} status {{ headlamp_release_name }}'."
+  when: _svc.resources | length == 0
+
+- name: Remember Service name
+  set_fact:
+    headlamp_service_name: "{{ _svc.resources[0].metadata.name }}"
+
+# 2) Switch Service type → LoadBalancer (JSON patch keeps ports intact)
+- name: Set Service type to LoadBalancer
   kubernetes.core.k8s_json_patch:
     api_version: v1
     kind: Service
-    name: "{{ headlamp_release_name }}"
     namespace: "{{ headlamp_namespace }}"
+    name: "{{ headlamp_service_name }}"
     patch:
       - op: replace
         path: /spec/type
         value: LoadBalancer
-      # optional static IP from Cilium pool
+
+# 3) Optional static IP from Cilium pool
+- name: Set Cilium LB-IPAM static IP annotation (optional)
+  when: headlamp_lb_ip | length > 0
+  kubernetes.core.k8s_json_patch:
+    api_version: v1
+    kind: Service
+    namespace: "{{ headlamp_namespace }}"
+    name: "{{ headlamp_service_name }}"
+    patch:
       - op: add
         path: /metadata/annotations/lbipam.cilium.io~1ips
         value: "{{ headlamp_lb_ip }}"
-  when: headlamp_lb_ip | length > 0
 
-- name: Switch Service to LoadBalancer (no static IP)
-  kubernetes.core.k8s_json_patch:
-    api_version: v1
-    kind: Service
-    name: "{{ headlamp_release_name }}"
-    namespace: "{{ headlamp_namespace }}"
-    patch:
-      - op: replace
-        path: /spec/type
-        value: LoadBalancer
-  when: headlamp_lb_ip | length == 0
-
+# 4) Wait for External IP
 - name: Wait for LoadBalancer IP allocation
   kubernetes.core.k8s_info:
     api_version: v1
     kind: Service
-    name: "{{ headlamp_release_name }}"
     namespace: "{{ headlamp_namespace }}"
+    name: "{{ headlamp_service_name }}"
   register: headlamp_svc
   until:
     - headlamp_svc.resources | length > 0
