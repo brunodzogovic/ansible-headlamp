@@ -1,20 +1,41 @@
-- name: Switch service to LoadBalancer (+ optional static IP)
-  kubernetes.core.k8s:
+- name: Wait until Headlamp Service exists (created by Helm)
+  kubernetes.core.k8s_info:
     api_version: v1
     kind: Service
     name: "{{ headlamp_release_name }}"
     namespace: "{{ headlamp_namespace }}"
-    merge_type: merge
-    definition:
-      metadata:
-        annotations: >-
-          {{
-            {'lbipam.cilium.io/ips': headlamp_lb_ip}
-            if (headlamp_lb_ip | length > 0)
-            else {}
-          }}
-      spec:
-        type: LoadBalancer
+  register: headlamp_svc_info
+  until: headlamp_svc_info.resources | length > 0
+  retries: 30
+  delay: 5
+
+- name: Switch Service to LoadBalancer (partial JSON patch)
+  kubernetes.core.k8s_json_patch:
+    api_version: v1
+    kind: Service
+    name: "{{ headlamp_release_name }}"
+    namespace: "{{ headlamp_namespace }}"
+    patch:
+      - op: replace
+        path: /spec/type
+        value: LoadBalancer
+      # optional static IP from Cilium pool
+      - op: add
+        path: /metadata/annotations/lbipam.cilium.io~1ips
+        value: "{{ headlamp_lb_ip }}"
+  when: headlamp_lb_ip | length > 0
+
+- name: Switch Service to LoadBalancer (no static IP)
+  kubernetes.core.k8s_json_patch:
+    api_version: v1
+    kind: Service
+    name: "{{ headlamp_release_name }}"
+    namespace: "{{ headlamp_namespace }}"
+    patch:
+      - op: replace
+        path: /spec/type
+        value: LoadBalancer
+  when: headlamp_lb_ip | length == 0
 
 - name: Wait for LoadBalancer IP allocation
   kubernetes.core.k8s_info:
