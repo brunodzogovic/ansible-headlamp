@@ -8,4 +8,4 @@ Highest priority variables are located in `group_vars/k8s.yml`. The headlamp rol
 Grant admin access to headlamp so it can control the clusters: 
 ```kubectl create clusterrolebinding headlamp-admin-crb \
   --clusterrole=cluster-admin \
-  --serviceaccount kube-system:headlamp-admin```
+  --serviceaccount kube-system:headlamp-admin
